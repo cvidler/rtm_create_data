@@ -37,7 +37,7 @@ PATHS="users,files,home,shop,path,index,login,logon,signout,logoff,search,admin,
 ### command line arguments
 ###
 OPTS=1
-while getopts ":dhb:a:i:l:s:c:u:r:" OPT; do
+while getopts ":dhi:l:s:c:u:r:" OPT; do
 	case $OPT in
 		h)
 			OPTS=0  #show help
@@ -488,10 +488,6 @@ function create_ndata_record() {
   echo "$temp"
   return 0
 }
-# TODO create_ndata_record: function test
-#for ((i=0;i<50;i++)); do
-#  echo -e $(create_ndata_record) [$?]
-#done
 
 #TODO create http record HL HLO h he?
 
