@@ -5,7 +5,9 @@
 # Chris Vidler Dynatrace DC RUM SME 2018 
 #
 
+###
 ### config defaults
+###
 
 # minutes, length of AMD data interval, typically 1 or 5.
 INTERVAL=5
@@ -31,9 +33,63 @@ PATHS="users,files,home,shop,path,index,login,logon,signout,logoff,search,admin,
 
 
 # TODO add command line params to control these defaults.
+###
+### command line arguments
+###
+OPTS=1
+while getopts ":dhb:a:i:l:s:c:u:r:" OPT; do
+	case $OPT in
+		h)
+			OPTS=0  #show help
+			;;
+		d)
+			DEBUG=$((DEBUG + 1))
+			;;
+		i)
+			if [ $OPTARG -eq 5 ] || [ $OPTARG -eq 1 ]; then INTERVAL=$OPTARG; else OPTS=0; echo "$OPTARG invalid value, required 1 or 5. Default: $INTERVAL"; fi
+			;;
+		l)
+			if [ $OPTARG -ge 5 ] && [ $OPTARG -le 1440 ]; then DURATION=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for length, required 5-1440. Default: $DURATION"; fi
+			;;
+		s)
+			if [ $OPTARG -gt 0 ] && [ $OPTARG -lt 32768 ]; then SERVERS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for server count, required 1 to 32767. Default: $SERVERS"; fi
+			;;
+		c)
+			if [ $OPTARG -gt 0 ] && [ $OPTARG -lt 32768 ]; then CLIENTS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for client count, required 1 to 32767. Default: $CLIENTS"; fi
+			;;
+		u)
+			if [ $OPTARG -gt 0 ] && [ $OPTARG -lt 32768 ]; then SERVERS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for URL count, required 1 to 32767. Default: $URLS"; fi
+			;;
+		r)
+			if [ $OPTARG -gt 0 ] && [ $OPTARG -le 1000000 ]; then RECORDS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for record count, required 1 to 1000000. Default: $RECORDS"; fi
+			;;
+		\?)
+			OPTS=0 #show help
+			echo "*** FATAL: Invalid argument -$OPTARG."
+			;;
+		:)
+			OPTS=0 #show help
+			echo "*** FATAL: argument -$OPTARG requires parameter."
+			;;
+	esac
+done
+
+if [ $OPTS -eq 0 ]; then
+	echo -e "*** INFO: Usage: $0 [-h] [-c count] [-s count] [-u count] [-r count] [-i interval] [-l length]"
+	echo -e "-h This help. Optional"
+	echo -e "-c count Number of clients to create. 1-32767. Optional. Default: $CLIENTS"
+	echo -e "-s count Number of servers to create. 1-32767. Optional. Default: $SERVERS"
+	echo -e "-u count Number of URLs to create. 1-32767. Optional. Default: $URLS"
+	echo -e "-r count Number of recordss to create. 1-1000000. Optional. Default: $RECORDS"
+	echo -e "-i interval Minutes in each interval. 1 or 5. Optional. Default: $INTERVAL"
+	echo -e "-l length Length of time to create intervals for (minutes). 5-1440. Optional. Default: $DURATION"
+	exit 1
+fi
 
 
+###
 ### script
+###
 
 ## header
 echo "$0 - Script to create random AMD data files with complexity"
