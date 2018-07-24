@@ -301,10 +301,6 @@ function create_rand_urls() {
 }
 
 # TODO create_rand_urls test cases
-slist=$(create_rand_ips $SERVERS)
-clist=$(create_rand_ips $CLIENTS)
-smaclist=$(create_rand_macs $SERVERS)
-cmaclist=$(create_rand_macs $CLIENTS)
 
 #echo -e "Servers: $slist"
 #echo -e "Clients: $clist"
@@ -497,10 +493,13 @@ function create_sample_files() {
   # produce sample files of random data using the passed time stamps $1
 
   IFS=',' read -ra tsarray <<< "$1"
+  total=${#tsarray[@]}
+  current=0
   for filets in ${tsarray[@]}; do
+    ((current++))
     zdata="zdata_$(ts_to_hex ${filets})_${INTERVAL}_t"
     ndata="ndata_$(ts_to_hex ${filets})_${INTERVAL}_t"
-    echo "Creating sample files: $zdata,$ndata"
+    echo "Creating sample files: $zdata,$ndata $current/$total"
     echo -e $(create_zdata_header) > $zdata
     for ((i=0;i<$RECORDS;i++)); do
       echo -e $(create_udp_record) >> $zdata
@@ -517,6 +516,19 @@ function create_sample_files() {
 
 }
 
+
+##
+## Main code
+##
+
+#create random lists of clients/server addresses
+slist=$(create_rand_ips $SERVERS)
+clist=$(create_rand_ips $CLIENTS)
+smaclist=$(create_rand_macs $SERVERS)
+cmaclist=$(create_rand_macs $CLIENTS)
+
+
+#create sample files
 create_sample_files $(create_timestamps $INTERVAL $DURATION)
 
 
