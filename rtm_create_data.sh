@@ -501,14 +501,15 @@ function create_sample_files() {
     ndata="ndata_$(ts_to_hex ${filets})_${INTERVAL}_t"
     echo "Creating sample files: $zdata,$ndata $current/$total"
     echo -e $(create_zdata_header) > $zdata
-    for ((i=0;i<$RECORDS;i++)); do
+    #for ((i=0;i<$RECORDS;i++4)); do
+    for i in {0..$RECORDS..4}; do
       echo -e $(create_udp_record) >> $zdata
       echo -e $(create_dns_record) >> $zdata
       echo -e $(create_tcp_record) >> $zdata
     done
 
     echo -e $(create_ndata_header) > $ndata
-    for ((i=0;i<$RECORDS;i++)); do
+    for i in {0..$RECORDS..1}; do
       echo -e $(create_ndata_record) >> $ndata
     done
     
