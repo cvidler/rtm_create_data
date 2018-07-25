@@ -27,6 +27,8 @@ URLS=100
 # count, # records to create per file
 RECORDS=50
 
+# number of threads to use to create data files, greatly speeds processing, defualts to number of cores available in the system, can be tweaked by -t command line option.
+MAXTHREADS=$(nproc)
 
 # some fake path names to pad out URLs
 PATHS="users,files,home,shop,path,index,login,logon,signout,logoff,search,admin,browse,uploads,ftp,pub,checkout"
@@ -37,7 +39,7 @@ PATHS="users,files,home,shop,path,index,login,logon,signout,logoff,search,admin,
 ### command line arguments
 ###
 OPTS=1
-while getopts ":dhi:l:s:c:u:r:" OPT; do
+while getopts ":dhi:l:s:c:u:r:t:" OPT; do
 	case $OPT in
 		h)
 			OPTS=0  #show help
@@ -63,6 +65,9 @@ while getopts ":dhi:l:s:c:u:r:" OPT; do
 		r)
 			if [ $OPTARG -gt 0 ] && [ $OPTARG -le 1000000 ]; then RECORDS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for record count, required 1 to 1000000. Default: $RECORDS"; fi
 			;;
+		t)
+			if [ $OPTARG -gt 0 ]; then MAXTHREADS=$OPTARG; else OPTS=0; echo "$OPTARG invalid value for maximum thread count, required minimum of 1. Default: $MAXTHREADS"; fi
+			;;
 		\?)
 			OPTS=0 #show help
 			echo "*** FATAL: Invalid argument -$OPTARG."
@@ -75,7 +80,7 @@ while getopts ":dhi:l:s:c:u:r:" OPT; do
 done
 
 if [ $OPTS -eq 0 ]; then
-	echo -e "*** INFO: Usage: $0 [-h] [-c count] [-s count] [-u count] [-r count] [-i interval] [-l length]"
+	echo -e "*** INFO: Usage: $0 [-h] [-c count] [-s count] [-u count] [-r count] [-i interval] [-l length] [-t threads]"
 	echo -e "-h This help. Optional"
 	echo -e "-c count Number of clients to create. 1-32767. Optional. Default: $CLIENTS"
 	echo -e "-s count Number of servers to create. 1-32767. Optional. Default: $SERVERS"
@@ -83,6 +88,7 @@ if [ $OPTS -eq 0 ]; then
 	echo -e "-r count Number of recordss to create. 1-1000000. Optional. Default: $RECORDS"
 	echo -e "-i interval Minutes in each interval. 1 or 5. Optional. Default: $INTERVAL"
 	echo -e "-l length Length of time to create intervals for (minutes). 5-1440. Optional. Default: $DURATION"
+	echo -e "-t maximum CPU threads to use to generate data, 1+. Optional. Default: $MAXTHREADS"
 	exit 1
 fi
 
@@ -220,7 +226,6 @@ function randnum() {
   echo "$rand"
   return 0
 }
-
 
 function create_rand_ips() {
   # generate a list (count in $1) of random IP addresses.
@@ -491,28 +496,57 @@ function create_ndata_record() {
 
 function create_sample_files() {
   # produce sample files of random data using the passed time stamps $1
+  pidfifo=$(mktemp --dry-run)
+  mkfifo --mode=0700 $pidfifo
+  exec 3<>$pidfifo
+  rm -f $pidfifo
+  running=0
+
+  echo "Creating data files with ${MAXTHREADS} threads."
 
   IFS=',' read -ra tsarray <<< "$1"
   total=${#tsarray[@]}
   current=0
   for filets in ${tsarray[@]}; do
     ((current++))
-    zdata="zdata_$(ts_to_hex ${filets})_${INTERVAL}_t"
-    ndata="ndata_$(ts_to_hex ${filets})_${INTERVAL}_t"
-    echo "Creating sample files: $zdata,$ndata $current/$total"
-    echo -e $(create_zdata_header) > $zdata
-    #for ((i=0;i<$RECORDS;i++4)); do
-    for i in {0..$RECORDS..4}; do
-      echo -e $(create_udp_record) >> $zdata
-      echo -e $(create_dns_record) >> $zdata
-      echo -e $(create_tcp_record) >> $zdata
-    done
 
-    echo -e $(create_ndata_header) > $ndata
-    for i in {0..$RECORDS..1}; do
-      echo -e $(create_ndata_record) >> $ndata
-    done
-    
+	while (( running >= $MAXTHREADS )) ; do
+		if read -u 3 cpid ; then
+			wait $cpid
+			(( --running ))
+		fi
+	done
+
+	(
+		echo $BASHPID 1>&3
+		zdata="zdata_$(ts_to_hex ${filets})_${INTERVAL}_t"
+		ndata="ndata_$(ts_to_hex ${filets})_${INTERVAL}_t"
+    	echo "Creating sample files: $zdata,$ndata $current/$total"
+		echo -e $(create_zdata_header) > $zdata
+		#for ((i=0;i<$RECORDS;i++4)); do
+		for i in $(seq 1 4 $RECORDS); do
+		  echo -e $(create_udp_record) >> $zdata		# 1 record
+		  echo -e $(create_dns_record) >> $zdata		# 1 record
+		  echo -e $(create_tcp_record) >> $zdata		# 2 records
+		done
+
+		echo -e $(create_ndata_header) > $ndata
+		for i in $(seq 1 1 $RECORDS); do
+		  echo -e $(create_ndata_record) >> $ndata		# 1 record
+		done
+
+		exit 0
+    ) &
+	(( ++running ))
+
+  done
+
+  #wait for final threads to complete
+  while (( running > 0 )) ; do
+	if read -u 3 cpid ; then
+		wait $cpid
+		(( --running ))
+	fi
   done
 
 }
@@ -523,11 +557,12 @@ function create_sample_files() {
 ##
 
 #create random lists of clients/server addresses
+echo "Preparing client, server, IP/MAC, and URL lists..."
 slist=$(create_rand_ips $SERVERS)
 clist=$(create_rand_ips $CLIENTS)
 smaclist=$(create_rand_macs $SERVERS)
 cmaclist=$(create_rand_macs $CLIENTS)
-
+echo "Preperation complete."
 
 #create sample files
 create_sample_files $(create_timestamps $INTERVAL $DURATION)
