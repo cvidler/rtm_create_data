@@ -529,11 +529,13 @@ function create_sample_files() {
 		  echo -e $(create_dns_record) >> $zdata		# 1 record
 		  echo -e $(create_tcp_record) >> $zdata		# 2 records
 		done
+		touch -d "$(date_from_ts($filets)" "$zdata"
 
 		echo -e $(create_ndata_header) > $ndata
 		for i in $(seq 1 1 $RECORDS); do
 		  echo -e $(create_ndata_record) >> $ndata		# 1 record
 		done
+		touch -d "$(date_from_ts($filets)" "$ndata"
 
 		exit 0
     ) &
