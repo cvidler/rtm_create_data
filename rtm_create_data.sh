@@ -569,5 +569,6 @@ echo "Preperation complete."
 #create sample files
 create_sample_files $(create_timestamps $INTERVAL $DURATION)
 
+echo "Done."
 
 
